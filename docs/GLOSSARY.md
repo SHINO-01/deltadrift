@@ -16,3 +16,13 @@
 - **Normalised equity** — equity rescaled to a $100.00 starting base for shareable reporting (FR-6).
 - **Px / Qty** — fixed-point i64 at 1e-8 scale.
 - **IOC** — immediate-or-cancel; unfilled remainder is reported as `Exec::Cancelled`.
+- **Sans-IO** — protocol code (TLS, WebSocket) written as pure state machines over byte buffers; the I/O driver is separate and swappable.
+- **Unbuffered rustls** — rustls API that decrypts TLS records in place in the caller's buffer, with no internal queues.
+- **SQPOLL** — io_uring mode where a kernel thread polls the submission queue, so submitting needs no syscall.
+- **CQ / SQ** — io_uring completion / submission queues (shared memory between user and kernel).
+- **bookTicker** — Binance best bid/ask (top-of-book) stream; `u` is the book update id.
+- **Stale update** — an event whose `seq` is ≤ the last seen for its instrument; dropped by the live runner.
+- **wire→event** — latency from the socket read that delivered the bytes to the decoded event entering the ring.
+- **SMT sibling** — two logical CPUs sharing one physical core (hyper-threading); never pin two spinning stages to siblings.
+- **Venue** — a market-data/execution provider adapter (`dd_feed::venues::Venue`).
+- **`.env`** — git-ignored file of secret environment variables; `.env.example` lists the names.

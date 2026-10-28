@@ -1,6 +1,6 @@
 [package]
 name = "dd-feed"
-description = "Market data sources: synthetic demo feed (live adapters land in Sprint 2)."
+description = "Market data sources: synthetic demo feed and live venue adapters."
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -9,7 +9,18 @@ publish.workspace = true
 
 [dependencies]
 dd-core.workspace = true
+dd-net.workspace = true
+dd-secrets.workspace = true
 serde.workspace = true
+serde_json.workspace = true
+hdrhistogram.workspace = true
+
+[dev-dependencies]
+criterion.workspace = true
+
+[[bench]]
+name = "decode"
+harness = false
 
 [lints]
 workspace = true

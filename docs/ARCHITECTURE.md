@@ -1,15 +1,18 @@
 # Architecture (current state)
 
-_Last updated: 2026-10-28, end of Sprint 1._
+_Last updated: 2026-10-29, end of Sprint 2._
 
 ## Pipeline
 
 ```
-core0  control / cold path (startup, config, reporting; later: world-data ingest)
-core1  feed      ──[SPSC ring<MarketEvent, 65536>]──▶
-core2  strategy  ──[SPSC ring<Signal, 65536>]──▶
-core3  risk + router ──▶ Broker (PaperBroker | live adapters from Sprint 4)
+ctrl   control / cold path (startup, config, secrets, reporting; optional io_uring SQ-poll thread)
+feed   socket ─▶ TLS (decrypt in place) ─▶ WS frames ─▶ venue decoder ─[SPSC ring<MarketEvent, 65536>]──▶
+strat  strategy ──[SPSC ring<Signal, 65536>]──▶
+risk   risk + router ──▶ Broker (PaperBroker | live adapters from Sprint 4)
                     ◀── Exec reports (Fill | Cancelled), same core, synchronous poll
+
+Core assignment: `engine.cores` or auto = one logical CPU per physical core, fastest first
+(ADR-0010). On the dev box: ctrl 0, feed 2, strategy 4, risk 6. On OCI A1: 0,1,2,3.
 ```
 
 - Each stage is one OS thread pinned to one core and busy-spins (`wait = "spin"`)
@@ -31,7 +34,9 @@ core3  risk + router ──▶ Broker (PaperBroker | live adapters from Sprint 4
 | `dd-strategy` | `Strategy` trait; `ZScoreReversion` baseline | forbidden |
 | `dd-risk` | `RiskEngine` guardrails + `Portfolio` accounting. **No dep on dd-strategy.** | forbidden |
 | `dd-exec` | `Broker` trait, `Exec` reports, `OrderTemplates`, `PaperBroker`, `TradingMode` | forbidden |
-| `dd-feed` | `SyntheticFeed` (demo); live adapters Sprint 2 | forbidden |
+| `dd-net` | Sans-IO TLS (rustls unbuffered) + WebSocket client over std / io_uring drivers | buffers + io_uring |
+| `dd-feed` | `SyntheticFeed`; live runner; venues `Binance`, `Alpaca`; `SymbolTable`; RFC 3339 | forbidden |
+| `dd-secrets` | `.env` loading, redacting/zeroizing `Secret` | forbidden |
 | `dd-engine` | `deltadrift` binary: config, pipeline wiring, report | forbidden |
 
 ## Wire types (`dd-core/src/types.rs`)
@@ -40,7 +45,8 @@ All `Copy`, `repr(C, align(64))`, exactly 64 B, compile-time asserted.
 Prices/quantities are fixed-point `i64` at 1e-8 (`Px`, `Qty`). Instruments are dense
 `u32` indices `< MAX_INSTRUMENTS (256)`; per-instrument state is a boxed array.
 
-- `MarketEvent` — `recv_ns` (latency origin), `exch_ns`, `seq`, instrument, kind, bid/ask/last/last_qty
+- `MarketEvent` — `recv_ns` (socket-read time; latency origin), `exch_ns`, `seq`, instrument, kind,
+  venue, bid/ask, bid_qty/ask_qty. Trades encode `bid = ask = px`, `bid_qty = size` (`MarketEvent::trade`).
 - `Signal` — `origin_ns`, instrument, strategy id, ref/bid/ask, **`mu`, `sigma2`** (a view, never a size)
 - `Order` — pre-formatted template per instrument; `stamp()` writes id, origin, side, qty, limit
 - `Fill` — execution report
@@ -68,11 +74,38 @@ sets `closed`. Unconsumed items are dropped correctly. Measured: 133 M msg/s,
 
 In-flight quantity is released by `on_fill` or `on_cancel` (`Exec::Cancelled`).
 
+## Live market data (`dd-net` + `dd-feed`)
+
+```
+Io.poll_recv ─▶ RecvBuf (ciphertext, 256 KiB, raw alloc)
+  ─▶ rustls UnbufferedClientConnection::process_tls_records  (decrypt in place, discard consumed)
+  ─▶ ByteBuf (plaintext)  ─▶ ws::parse_frame (borrowed slices; ping→pong queued; fragments reassembled)
+  ─▶ Venue::on_message(msg, recv_ns, emit)  (borrowed serde JSON; exact decimal → Px/Qty)
+  ─▶ stale filter (seq ≤ last seen per instrument → dropped) ─▶ ring push
+```
+
+- `WsClient::connect` is cold path (DNS, TCP, TLS handshake, HTTP upgrade); messages that
+  arrive with the upgrade response are retained. `poll` is non-blocking and allocation-free.
+- Drivers (ADR-0007): `std` (non-blocking recv), `uring` (CQ polled from shared memory),
+  `sqpoll` (kernel SQ thread on the control core). Probed at startup; falls back to std.
+- `live::run` reconnects with exponential backoff (100 ms → 5 s), replays the venue session
+  (`on_connect` + replies from `on_message`, e.g. Alpaca auth → subscribe), resets stale filters.
+  `VenueError::Skip` is counted; `Fatal` (e.g. auth rejected) stops the feed.
+- Venues: **Binance** combined `bookTicker` (public; `u` as seq). **Alpaca** crypto/stocks quotes
+  (keys from `.env`; streaming array visitor; venue timestamps parsed to `exch_ns`).
+- `FeedStats.wire_to_event` histogram: socket read → event emitted.
+
+## Secrets
+
+`.env` (git-ignored) → environment → `dd_secrets::Secret` (redacted, zeroized). Loaded once in
+`main` before threads. `.env.example` lists names. See ADR-0008.
+
 ## Clock & pinning
 
 - `clock::now_ns()` = `Instant` since a process epoch (vDSO, no syscall).
 - `affinity::init()` snapshots allowed cores **once, before any pinning**: see ADR-0004
   for the bug this prevents. The control thread pins itself only after spawning stages.
+- `affinity::plan_cores(n)` picks distinct physical cores, fastest first (ADR-0010).
 
 ## Build profile
 

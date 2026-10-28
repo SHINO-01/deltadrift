@@ -65,40 +65,70 @@ pub enum EventKind {
     Trade = 1,
 }
 
-/// Normalised top-of-book / trade update. Produced by the feed core.
+/// Venue identifiers (dense, for per-venue tables).
+pub mod venue {
+    pub const SYNTHETIC: u8 = 0;
+    pub const BINANCE: u8 = 1;
+    pub const ALPACA_CRYPTO: u8 = 2;
+    pub const ALPACA_STOCKS: u8 = 3;
+}
+
+/// Normalised top-of-book update. Produced by the feed core.
+///
+/// For `EventKind::Trade`, `bid == ask == trade price` and `bid_qty` is the
+/// trade size (see [`MarketEvent::trade`]), so `mid()` is valid for every kind.
 #[derive(Clone, Copy, Debug, Default)]
 #[repr(C, align(64))]
 pub struct MarketEvent {
-    /// Local monotonic receive time (see [`crate::clock`]). Latency origin.
+    /// Local monotonic time the bytes were read from the socket (see
+    /// [`crate::clock`]). Origin for all tick-to-X latency measurements.
     pub recv_ns: u64,
-    /// Venue timestamp, ns since Unix epoch (0 if unknown).
+    /// Venue timestamp, ns since Unix epoch (0 if the venue doesn't send one).
     pub exch_ns: u64,
-    /// Per-feed sequence number for gap detection.
+    /// Venue sequence/update id (monotonic per instrument), or a local counter.
     pub seq: u64,
     pub instrument: InstrumentId,
     pub kind: EventKind,
-    _pad: [u8; 3],
+    pub venue: u8,
+    _pad: [u8; 2],
     pub bid: Px,
     pub ask: Px,
-    pub last: Px,
-    pub last_qty: Qty,
+    pub bid_qty: Qty,
+    pub ask_qty: Qty,
 }
 
 impl MarketEvent {
     #[inline(always)]
     #[allow(clippy::too_many_arguments)]
-    pub const fn new(
+    pub const fn quote(
         recv_ns: u64,
         exch_ns: u64,
         seq: u64,
         instrument: InstrumentId,
-        kind: EventKind,
+        venue: u8,
         bid: Px,
         ask: Px,
-        last: Px,
-        last_qty: Qty,
+        bid_qty: Qty,
+        ask_qty: Qty,
     ) -> Self {
-        Self { recv_ns, exch_ns, seq, instrument, kind, _pad: [0; 3], bid, ask, last, last_qty }
+        Self { recv_ns, exch_ns, seq, instrument, kind: EventKind::Quote, venue, _pad: [0; 2], bid, ask, bid_qty, ask_qty }
+    }
+
+    #[inline(always)]
+    pub const fn trade(recv_ns: u64, exch_ns: u64, seq: u64, instrument: InstrumentId, venue: u8, px: Px, qty: Qty) -> Self {
+        Self {
+            recv_ns,
+            exch_ns,
+            seq,
+            instrument,
+            kind: EventKind::Trade,
+            venue,
+            _pad: [0; 2],
+            bid: px,
+            ask: px,
+            bid_qty: qty,
+            ask_qty: Qty::ZERO,
+        }
     }
 
     #[inline(always)]

@@ -29,7 +29,13 @@ pub fn json(r: &RunReport, cfg: &Config) -> Value {
     let rejects: serde_json::Map<_, _> =
         RejectReason::ALL.iter().map(|x| (x.name().to_string(), r.risk_stats.rejects[*x as usize].into())).collect();
     json!({
-        "mode": "paper-demo",
+        "mode": if r.live.is_some() { "paper-live-data" } else { "paper-demo" },
+        "feed": r.live.as_ref().map(|l| json!({
+            "connects": l.connects, "disconnects": l.disconnects, "messages": l.messages,
+            "events": l.events, "skipped": l.skipped, "stale": l.stale, "pings": l.pings,
+            "bytes_in": l.bytes_in, "last_error": l.last_error, "fatal": l.fatal,
+            "wire_to_event": lat_json(&l.wire_to_event),
+        })),
         "wall_secs": secs,
         "wait": format!("{:?}", cfg.engine.wait).to_lowercase(),
         "pinned": { "feed": r.feed.pinned, "strategy": r.strategy.pinned, "risk": r.risk.pinned },
@@ -56,10 +62,11 @@ pub fn json(r: &RunReport, cfg: &Config) -> Value {
 pub fn print(r: &RunReport, cfg: &Config) {
     let secs = r.wall.as_secs_f64();
     let pin = |b: bool| if b { "pinned" } else { "unpinned" };
-    println!("DeltaDrift run — paper/demo, wait={:?}, {:.2}s", cfg.engine.wait, secs);
+    let mode = if r.live.is_some() { "paper/live-data" } else { "paper/demo" };
+    println!("DeltaDrift run — {mode}, wait={:?}, {:.2}s", cfg.engine.wait, secs);
     println!(
         "  stages   feed[{}] {} | strategy[{}] {} | risk[{}] {}",
-        cfg.engine.cores[1], pin(r.feed.pinned), cfg.engine.cores[2], pin(r.strategy.pinned), cfg.engine.cores[3], pin(r.risk.pinned)
+        cfg.engine.cores()[1], pin(r.feed.pinned), cfg.engine.cores()[2], pin(r.strategy.pinned), cfg.engine.cores()[3], pin(r.risk.pinned)
     );
     println!(
         "  events   {} in, {} processed ({:.0} ev/s), dropped {}",
@@ -68,6 +75,20 @@ pub fn print(r: &RunReport, cfg: &Config) {
         r.feed.items as f64 / secs,
         r.feed.items - r.risk.items
     );
+    if let Some(l) = &r.live {
+        println!(
+            "  feed     connects {}  disconnects {}  msgs {}  events {}  skipped {}  stale {}  pings {}  {:.1} KiB in",
+            l.connects, l.disconnects, l.messages, l.events, l.skipped, l.stale, l.pings, l.bytes_in as f64 / 1024.0
+        );
+        let h = &l.wire_to_event;
+        let qs: Vec<String> = QUANTILES.iter().map(|(q, n)| format!("{n} {}", fmt_ns(h.value_at_quantile(*q)))).collect();
+        println!("  {:<14} n={:<10} {}", "wire→event", h.len(), qs.join("  "));
+        if let Some(f) = &l.fatal {
+            println!("  FATAL    {f}");
+        } else if let Some(e) = &l.last_error {
+            println!("  last err {e}");
+        }
+    }
     for (name, h) in [("tick→decision", &r.decision_latency), ("tick→order", &r.order_latency)] {
         let qs: Vec<String> = QUANTILES.iter().map(|(q, n)| format!("{n} {}", fmt_ns(h.value_at_quantile(*q)))).collect();
         println!("  {name:<14} n={:<10} {}", h.len(), qs.join("  "));

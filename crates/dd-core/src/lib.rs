@@ -5,6 +5,7 @@
 
 pub mod affinity;
 pub mod clock;
+pub mod decimal;
 pub mod pad;
 pub mod ring;
 pub mod rng;

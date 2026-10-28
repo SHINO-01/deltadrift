@@ -1,4 +1,8 @@
 /target
+# Secrets: never commit. Copy .env.example -> .env and fill in.
+.env
+.env.*
+!.env.example
 *.key
+*.pem
 *.enc
-.env*

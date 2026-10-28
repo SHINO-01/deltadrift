@@ -3,7 +3,7 @@
 
 [engine]
 mode = "paper"            # "paper" | "live" (live refused until Sprint 4)
-cores = [0, 1, 2, 3]      # [control/cold, feed, strategy, risk+router]
+# cores = [0, 1, 2, 3]    # [control/cold, feed, strategy, risk+router]; omit = auto (one per physical core, fastest first)
 pin = true
 wait = "spin"             # "spin" on isolated prod cores, "yield" on shared machines
 rate_per_sec = 200000     # demo feed rate; 0 = unthrottled

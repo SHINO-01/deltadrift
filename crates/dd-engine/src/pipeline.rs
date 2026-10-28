@@ -14,12 +14,13 @@ use std::time::Duration;
 use dd_core::wait::{BusySpin, SpinThenYield, Wait};
 use dd_core::{MarketEvent, Signal, TimeInForce, affinity, clock, ring};
 use dd_exec::{Broker, Exec, OrderTemplates, PaperBroker};
-use dd_feed::SyntheticFeed;
+use dd_feed::live::FeedStats;
 use dd_risk::{Decision, RiskEngine, RiskStats};
 use dd_strategy::{Strategy, ZScoreReversion};
 use hdrhistogram::Histogram;
 
 use crate::config::{Config, WaitMode};
+use crate::feed::{self, FeedSource};
 
 /// Ring capacities. 64 KiB slots * 64 B = 4 MiB each: comfortably absorbs
 /// bursts while staying well inside the 8 GB budget (NFR-2).
@@ -38,6 +39,8 @@ pub struct StageReport {
 pub struct RunReport {
     pub wall: Duration,
     pub feed: StageReport,
+    /// Live-feed connection/decoding stats (None for the synthetic feed).
+    pub live: Option<FeedStats>,
     pub strategy: StageReport,
     pub risk: StageReport,
     /// Event receive → risk decision, every event.
@@ -55,22 +58,21 @@ pub struct RunReport {
     pub broker_errors: u64,
 }
 
-pub fn run(cfg: &Config) -> anyhow::Result<RunReport> {
+pub fn run(cfg: &Config, src: FeedSource) -> anyhow::Result<RunReport> {
     match cfg.engine.wait {
-        WaitMode::Spin => run_with::<BusySpin>(cfg),
-        WaitMode::Yield => run_with::<SpinThenYield>(cfg),
+        WaitMode::Spin => run_with::<BusySpin>(cfg, src),
+        WaitMode::Yield => run_with::<SpinThenYield>(cfg, src),
     }
 }
 
 fn pin(cfg: &Config, stage: usize) -> bool {
-    cfg.engine.pin && affinity::pin_current(cfg.engine.cores[stage])
+    cfg.engine.pin && affinity::pin_current(cfg.engine.cores()[stage])
 }
 
-fn run_with<W: Wait + Default>(cfg: &Config) -> anyhow::Result<RunReport> {
+fn run_with<W: Wait + Default>(cfg: &Config, src: FeedSource) -> anyhow::Result<RunReport> {
     clock::init();
     let risk = RiskEngine::new(cfg.risk.clone()).map_err(anyhow::Error::msg)?;
     let strategy = ZScoreReversion::new(cfg.strategy.clone());
-    let feed = SyntheticFeed::new(cfg.feed.clone());
     let broker = PaperBroker::new(cfg.paper.clone(), clock::now_ns);
     let templates = OrderTemplates::new(0, TimeInForce::Ioc, session_id());
     // 1 ns .. 10 s at 3 significant figures; allocated now, never on the hot path.
@@ -88,29 +90,11 @@ fn run_with<W: Wait + Default>(cfg: &Config) -> anyhow::Result<RunReport> {
 
     std::thread::scope(|s| {
         let feed_h = std::thread::Builder::new().name("dd-feed".into()).spawn_scoped(s, move || {
-            let (mut ev_tx, mut feed) = (ev_tx, feed);
+            let mut ev_tx = ev_tx;
             let pinned = pin(cfg, 1);
-            let mut w = W::default();
-            let interval = 1_000_000_000u64.checked_div(rate).unwrap_or(0);
-            let mut next = clock::now_ns();
-            let mut n = 0u64;
-            loop {
-                let now = clock::now_ns();
-                if now >= deadline {
-                    break;
-                }
-                if interval != 0 {
-                    if now < next {
-                        core::hint::spin_loop();
-                        continue;
-                    }
-                    next += interval;
-                }
-                ev_tx.push_with(feed.next_event(clock::now_ns()), &mut w);
-                n += 1;
-            }
+            let (n, live) = feed::run::<W, EVENT_RING>(src, &mut ev_tx, deadline, rate);
             drop(ev_tx);
-            StageReport { pinned, items: n }
+            (StageReport { pinned, items: n }, live)
         })?;
 
         let strat_h = std::thread::Builder::new().name("dd-strategy".into()).spawn_scoped(s, move || {
@@ -187,13 +171,14 @@ fn run_with<W: Wait + Default>(cfg: &Config) -> anyhow::Result<RunReport> {
 
         // Pin the control thread only now: children inherit their parent's mask.
         pin(cfg, 0);
-        let feed_r = feed_h.join().expect("feed stage panicked");
+        let (feed_r, live) = feed_h.join().expect("feed stage panicked");
         let strat_r = strat_h.join().expect("strategy stage panicked");
         let (risk_r, fills, cancels, broker_errors, risk, decision_latency, order_latency) = risk_h.join().expect("risk stage panicked");
         let p = &risk.portfolio;
         Ok(RunReport {
             wall: Duration::from_nanos(clock::now_ns() - start_ns),
             feed: feed_r,
+            live,
             strategy: strat_r,
             risk: risk_r,
             decision_latency,
