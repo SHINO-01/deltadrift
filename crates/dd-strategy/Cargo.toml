@@ -1,0 +1,16 @@
+[package]
+name = "dd-strategy"
+description = "Strategy trait and reference policies. Emits views, never sizes."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+dd-core.workspace = true
+dd-features.workspace = true
+serde.workspace = true
+
+[lints]
+workspace = true

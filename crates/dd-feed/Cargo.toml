@@ -1,0 +1,15 @@
+[package]
+name = "dd-feed"
+description = "Market data sources: synthetic demo feed (live adapters land in Sprint 2)."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+dd-core.workspace = true
+serde.workspace = true
+
+[lints]
+workspace = true

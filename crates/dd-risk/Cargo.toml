@@ -1,0 +1,15 @@
+[package]
+name = "dd-risk"
+description = "Hard risk guardrails and portfolio accounting, independent of strategy code."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+dd-core.workspace = true
+serde.workspace = true
+
+[lints]
+workspace = true

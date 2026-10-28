@@ -1,0 +1,29 @@
+[package]
+name = "dd-engine"
+description = "DeltaDrift engine binary: wires the core-pinned, lock-free pipeline."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[[bin]]
+name = "deltadrift"
+path = "src/main.rs"
+
+[dependencies]
+dd-core.workspace = true
+dd-features.workspace = true
+dd-strategy.workspace = true
+dd-risk.workspace = true
+dd-exec.workspace = true
+dd-feed.workspace = true
+anyhow.workspace = true
+clap.workspace = true
+hdrhistogram.workspace = true
+serde.workspace = true
+toml.workspace = true
+serde_json.workspace = true
+
+[lints]
+workspace = true

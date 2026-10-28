@@ -1,0 +1,3 @@
+# Production target: OCI Ampere A1 (Arm Neoverse-N1). Enables NEON/LSE atomics tuning.
+[target.aarch64-unknown-linux-gnu]
+rustflags = ["-C", "target-cpu=neoverse-n1"]

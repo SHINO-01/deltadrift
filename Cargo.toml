@@ -1,0 +1,42 @@
+[workspace]
+resolver = "3"
+members = ["crates/*"]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.88"
+license = "UNLICENSED"
+publish = false
+
+[workspace.dependencies]
+dd-core = { path = "crates/dd-core" }
+dd-features = { path = "crates/dd-features" }
+dd-strategy = { path = "crates/dd-strategy" }
+dd-risk = { path = "crates/dd-risk" }
+dd-exec = { path = "crates/dd-exec" }
+dd-feed = { path = "crates/dd-feed" }
+anyhow = "1"
+clap = { version = "4", features = ["derive"] }
+core_affinity = "0.8"
+hdrhistogram = { version = "7", default-features = false }
+serde = { version = "1", features = ["derive"] }
+toml = "0.8"
+serde_json = "1"
+criterion = { version = "0.5", default-features = false }
+
+[workspace.lints.rust]
+unsafe_op_in_unsafe_fn = "deny"
+missing_debug_implementations = "warn"
+
+[workspace.lints.clippy]
+all = { level = "warn", priority = -1 }
+undocumented_unsafe_blocks = "deny"
+
+[profile.release]
+opt-level = 3
+lto = "fat"
+codegen-units = 1
+panic = "abort"
+debug = "line-tables-only"
+
