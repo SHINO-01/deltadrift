@@ -71,6 +71,7 @@ pub mod venue {
     pub const BINANCE: u8 = 1;
     pub const ALPACA_CRYPTO: u8 = 2;
     pub const ALPACA_STOCKS: u8 = 3;
+    pub const CTRADER: u8 = 4;
 }
 
 /// Normalised top-of-book update. Produced by the feed core.

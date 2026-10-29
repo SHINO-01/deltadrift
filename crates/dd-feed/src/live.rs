@@ -11,7 +11,7 @@ use dd_core::{MAX_INSTRUMENTS, MarketEvent, clock};
 use dd_net::{ClientOptions, NetError, WsClient};
 use hdrhistogram::Histogram;
 
-use crate::venues::{Venue, VenueError};
+use crate::venues::{Outbound, Venue, VenueError};
 
 #[derive(Debug, Clone)]
 pub struct FeedStats {
@@ -52,6 +52,13 @@ impl Default for FeedStats {
 const BACKOFF_MIN: Duration = Duration::from_millis(100);
 const BACKOFF_MAX: Duration = Duration::from_secs(5);
 
+fn send(c: &mut WsClient, m: &Outbound) -> Result<(), NetError> {
+    match m {
+        Outbound::Text(t) => c.send_text(t),
+        Outbound::Binary(b) => c.send_binary(b),
+    }
+}
+
 /// Runs until `clock::now_ns() >= deadline_ns` or a fatal error.
 pub fn run<V: Venue, W: Wait, E: FnMut(MarketEvent)>(
     venue: &mut V,
@@ -64,6 +71,7 @@ pub fn run<V: Venue, W: Wait, E: FnMut(MarketEvent)>(
     let mut last_seq = vec![0u64; MAX_INSTRUMENTS].into_boxed_slice();
     let mut backoff = BACKOFF_MIN;
     let url = venue.url();
+    let opts = &ClientOptions { max_message: opts.max_message.max(V::MAX_MESSAGE), ..opts.clone() };
 
     'session: while clock::now_ns() < deadline_ns {
         let mut client = match WsClient::connect(&url, opts) {
@@ -80,14 +88,14 @@ pub fn run<V: Venue, W: Wait, E: FnMut(MarketEvent)>(
         backoff = BACKOFF_MIN;
         eprintln!("[feed:{}] connected", V::NAME);
         for m in venue.on_connect() {
-            if let Err(e) = client.send_text(&m) {
+            if let Err(e) = send(&mut client, &m) {
                 st.last_error = Some(e.to_string());
                 st.disconnects += 1;
                 continue 'session;
             }
         }
 
-        let mut reply: Option<String> = None;
+        let mut reply: Option<Outbound> = None;
         let mut fatal: Option<String> = None;
         let net_before = client.stats();
         let result = loop {
@@ -124,8 +132,8 @@ pub fn run<V: Venue, W: Wait, E: FnMut(MarketEvent)>(
                 st.fatal = Some(f);
                 break Ok(());
             }
-            if let Some(m) = reply.take()
-                && let Err(e) = client.send_text(&m)
+            if let Some(m) = reply.take().or_else(|| venue.on_tick(clock::now_ns()))
+                && let Err(e) = send(&mut client, &m)
             {
                 break Err(e);
             }

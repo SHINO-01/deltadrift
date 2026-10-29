@@ -7,8 +7,10 @@ core-pinned pipeline, hard risk guardrails independent of strategy code.
 cargo build --release
 ./target/release/deltadrift run --demo -c config/default.toml -d 10   # offline demo, paper broker
 ./target/release/deltadrift run --demo -r 0 --wait spin --json          # max throughput, JSON report
-./target/release/deltadrift run --live binance --symbols BTCUSDT,ETHUSDT -d 60   # live data, paper execution
-cp .env.example .env   # then add ALPACA_* keys for --live alpaca-crypto / alpaca-stocks
+cp .env.example .env   # add CTRADER_* (free demo account) — see .env.example for the 3 steps
+./target/release/deltadrift run --live ctrader --symbols EURUSD,BTCUSD -d 60   # default free vendor
+./target/release/deltadrift run --live binance --symbols BTCUSDT,ETHUSDT -d 60   # public crypto, no keys
+cargo run --release -p dd-feed --example ctrader_version   # cTrader connectivity check, no keys
 cargo test --release --workspace
 cargo bench -p dd-core --bench ring
 ```

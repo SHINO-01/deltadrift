@@ -47,6 +47,9 @@ impl Default for EngineConfig {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, clap::ValueEnum)]
 #[serde(rename_all = "kebab-case")]
 pub enum LiveVenue {
+    /// cTrader Open API: forex, crypto, share/index CFDs; free with a demo
+    /// account (needs CTRADER_* in .env). Default.
+    Ctrader,
     /// Binance Spot bookTicker (public; no credentials).
     Binance,
     /// Alpaca crypto quotes (needs ALPACA_* in .env).
@@ -79,7 +82,12 @@ pub struct LiveConfig {
 
 impl Default for LiveConfig {
     fn default() -> Self {
-        Self { venue: LiveVenue::Binance, symbols: vec!["BTCUSDT".into(), "ETHUSDT".into()], io: IoMode::Uring, url: None }
+        Self {
+            venue: LiveVenue::Ctrader,
+            symbols: ["EURUSD", "GBPUSD", "USDJPY", "BTCUSD", "ETHUSD"].map(String::from).to_vec(),
+            io: IoMode::Uring,
+            url: None,
+        }
     }
 }
 

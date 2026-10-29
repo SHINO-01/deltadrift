@@ -90,3 +90,32 @@ or the strategy/risk hops (~0.7 µs). std / uring / sqpoll were indistinguishabl
 ### Next: Sprint 3 — SIMD feature engine + PIT store
 NEON/SIMD batch z-scores and decay, point-in-time feature store (TimescaleDB per spec — revisit
 vs. embedded store given the 4-core free-tier budget), FRED macro ingestion on the cold path.
+
+## Sprint 2.5 — Free data vendor (2026-10-29)
+
+Owner constraint: all data must be free (Alpaca full real-time stock data costs $1,089/yr).
+
+### Shipped
+- Research note [research/2026-10-29-free-market-data-sources.md](research/2026-10-29-free-market-data-sources.md) (FX / crypto / stocks, provenance-tagged).
+- **cTrader Open API** adapter (ADR-0011), now the default live venue: full session state machine, account
+  auto-selection, symbol resolution with suggestions, partial-spot merging, heartbeats, exact price conversion.
+- `dd_feed::proto`: zero-alloc proto2 reader + writer. `dd-net`: `send_binary`.
+- `Venue` trait: `Outbound::{Text, Binary}`, `on_tick` hook, per-venue `MAX_MESSAGE`.
+- `ctrader_version` example: credential-free live connectivity check.
+- Tests: 51 total (+8). Clippy clean.
+
+### Verified
+- Live: `wss://demo.ctraderapi.com:5035` → `ProtoOAVersionRes` "102" over our TLS/WS/protobuf stack.
+- Session flow, partial updates, errors, heartbeats: fixture tests built from Spotware's `.proto` field numbers.
+- **Not yet verified live:** authenticated session + spot stream (needs owner's demo credentials in `.env`).
+
+### Open items
+- Live-verify with credentials; record symbol names for FX/crypto/stocks on the chosen broker.
+- Token refresh with secure persistence of rotated refresh tokens.
+- Spot stream has no sizes; consider depth (`ProtoOASubscribeDepthQuotesReq`) if strategies need size.
+
+### 2026-10-29 — Owner decisions
+- Goal set: live-money automated income stream → [LIVE_READINESS.md](LIVE_READINESS.md) gates G0–G4.
+- ADR-0012 **accepted**: S3 = backtest + cost model, S4 = cTrader execution + live blockers,
+  S5 = strategy research, S6 = paper run + monitoring.
+- Jurisdiction **Australia**: ASIC leverage caps → blocker L12; AU-FY tax ledger → blocker L14.

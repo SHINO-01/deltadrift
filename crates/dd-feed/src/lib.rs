@@ -9,6 +9,7 @@
 #![forbid(unsafe_code)]
 
 pub mod live;
+pub mod proto;
 pub mod symbols;
 pub mod synthetic;
 pub mod time;

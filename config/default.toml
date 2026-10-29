@@ -43,3 +43,8 @@ limit_slippage_bps = 5.0
 [paper]
 fee_bps = 1.0
 slippage_bps = 0.5
+
+[live]                    # used with `--live` (venue/symbols/io can also be set on the CLI)
+venue = "ctrader"         # ctrader (default, free demo) | binance | alpaca-crypto | alpaca-stocks
+symbols = ["EURUSD", "GBPUSD", "USDJPY", "BTCUSD", "ETHUSD"]   # broker-specific names
+io = "uring"              # std | uring | sqpoll

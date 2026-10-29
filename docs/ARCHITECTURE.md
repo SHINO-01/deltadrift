@@ -35,7 +35,7 @@ Core assignment: `engine.cores` or auto = one logical CPU per physical core, fas
 | `dd-risk` | `RiskEngine` guardrails + `Portfolio` accounting. **No dep on dd-strategy.** | forbidden |
 | `dd-exec` | `Broker` trait, `Exec` reports, `OrderTemplates`, `PaperBroker`, `TradingMode` | forbidden |
 | `dd-net` | Sans-IO TLS (rustls unbuffered) + WebSocket client over std / io_uring drivers | buffers + io_uring |
-| `dd-feed` | `SyntheticFeed`; live runner; venues `Binance`, `Alpaca`; `SymbolTable`; RFC 3339 | forbidden |
+| `dd-feed` | `SyntheticFeed`; live runner; venues `Ctrader` (default), `Binance`, `Alpaca`; proto2 codec; `SymbolTable`; RFC 3339 | forbidden |
 | `dd-secrets` | `.env` loading, redacting/zeroizing `Secret` | forbidden |
 | `dd-engine` | `deltadrift` binary: config, pipeline wiring, report | forbidden |
 
@@ -91,8 +91,13 @@ Io.poll_recv ─▶ RecvBuf (ciphertext, 256 KiB, raw alloc)
 - `live::run` reconnects with exponential backoff (100 ms → 5 s), replays the venue session
   (`on_connect` + replies from `on_message`, e.g. Alpaca auth → subscribe), resets stale filters.
   `VenueError::Skip` is counted; `Fatal` (e.g. auth rejected) stops the feed.
-- Venues: **Binance** combined `bookTicker` (public; `u` as seq). **Alpaca** crypto/stocks quotes
-  (keys from `.env`; streaming array visitor; venue timestamps parsed to `exch_ns`).
+- Venues (`dd_feed::venues::Venue`: `url`, `on_connect`, `on_message`, `on_tick` → `Outbound::{Text,Binary}`):
+  - **cTrader Open API — default** (ADR-0011): binary protobuf over WS; session AppAuth →
+    (account list →) AccountAuth → SymbolsList → SubscribeSpots; heartbeat every 10 s via `on_tick`;
+    partial spot updates merged per symbol; 1e-5 price units ×1000 → `Px`; `IdMap` symbolId → instrument.
+    Hand-rolled proto2 codec in `dd_feed::proto`.
+  - **Binance** combined `bookTicker` (public; `u` as seq).
+  - **Alpaca** crypto/stocks quotes (streaming array visitor; venue timestamps → `exch_ns`).
 - `FeedStats.wire_to_event` histogram: socket read → event emitted.
 
 ## Secrets

@@ -26,3 +26,8 @@
 - **SMT sibling** — two logical CPUs sharing one physical core (hyper-threading); never pin two spinning stages to siblings.
 - **Venue** — a market-data/execution provider adapter (`dd_feed::venues::Venue`).
 - **`.env`** — git-ignored file of secret environment variables; `.env.example` lists the names.
+- **cTrader Open API** — Spotware's free API for cTrader broker accounts (demo or live): quotes, history, trading.
+- **CFD** — contract for difference; a broker-quoted instrument tracking an underlying (share, index, crypto).
+- **ProtoMessage** — cTrader's envelope: `payloadType` (1), `payload` bytes (2), `clientMsgId` (3).
+- **Spot event** — cTrader quote update; carries only the changed side(s), prices in 1/100000 units.
+- **Playground** — cTrader Open API page that issues access tokens for your own accounts without building an OAuth flow.

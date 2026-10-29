@@ -160,6 +160,12 @@ impl WsClient {
         self.pump()
     }
 
+    /// Queues a binary message (e.g. a serialized protobuf) and flushes it.
+    pub fn send_binary(&mut self, msg: &[u8]) -> Result<(), NetError> {
+        ws::encode_client_frame(Opcode::Binary, msg, random(), &mut self.plain_out);
+        self.pump()
+    }
+
     /// Hot path. Non-blocking: reads whatever is available, decrypts in place,
     /// and invokes `on_msg(payload, recv_ns)` for each complete text/binary
     /// message. Pings are answered automatically. Returns messages delivered.

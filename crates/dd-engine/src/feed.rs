@@ -6,6 +6,7 @@ use dd_core::{MarketEvent, Producer, clock};
 use dd_feed::live::{self, FeedStats};
 use dd_feed::venues::alpaca::{Alpaca, AlpacaFeed};
 use dd_feed::venues::binance::Binance;
+use dd_feed::venues::ctrader::Ctrader;
 use dd_feed::{SymbolTable, SyntheticFeed};
 use dd_net::{ClientOptions, IoBackend};
 
@@ -13,6 +14,7 @@ use crate::config::{Config, IoMode, LiveVenue};
 
 pub enum FeedSource {
     Synthetic(SyntheticFeed),
+    Ctrader(Ctrader, ClientOptions),
     Binance(Binance, ClientOptions),
     Alpaca(Alpaca, ClientOptions),
 }
@@ -22,6 +24,7 @@ impl FeedSource {
         match self {
             Self::Synthetic(_) => "synthetic (demo)".into(),
             Self::Binance(v, o) => format!("binance {:?} via {:?}", v.symbols().symbols(), o.io),
+            Self::Ctrader(v, o) => format!("{v:?} via {:?}", o.io),
             Self::Alpaca(v, o) => format!("{v:?} via {:?}", o.io),
         }
     }
@@ -46,6 +49,7 @@ pub fn build(cfg: &Config, live: bool) -> Result<FeedSource> {
     let opts = ClientOptions { io, ..Default::default() };
     let symbols = SymbolTable::new(&l.symbols).map_err(anyhow::Error::msg).context("[live].symbols")?;
     Ok(match l.venue {
+        LiveVenue::Ctrader => FeedSource::Ctrader(Ctrader::from_env(symbols).map_err(anyhow::Error::msg)?, opts),
         LiveVenue::Binance => {
             let v = match &l.url {
                 Some(u) => Binance::with_base_url(symbols, u),
@@ -95,6 +99,7 @@ pub fn run<W: Wait + Default, const N: usize>(
             }
             None
         }
+        FeedSource::Ctrader(mut v, o) => Some(live::run(&mut v, &o, deadline, &mut idle, &mut emit)),
         FeedSource::Binance(mut v, o) => Some(live::run(&mut v, &o, deadline, &mut idle, &mut emit)),
         FeedSource::Alpaca(mut v, o) => Some(live::run(&mut v, &o, deadline, &mut idle, &mut emit)),
     };

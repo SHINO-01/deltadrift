@@ -9,7 +9,7 @@ use dd_core::decimal::{parse_px, parse_qty};
 use dd_core::{MarketEvent, venue};
 use serde::Deserialize;
 
-use super::{Venue, VenueError};
+use super::{Outbound, Venue, VenueError};
 use crate::SymbolTable;
 
 #[derive(Debug, Clone)]
@@ -62,12 +62,12 @@ impl Venue for Binance {
         format!("{}/stream?streams={}", self.base_url, streams.join("/"))
     }
 
-    fn on_connect(&mut self) -> Vec<String> {
+    fn on_connect(&mut self) -> Vec<Outbound> {
         Vec::new() // subscriptions are encoded in the URL
     }
 
     #[inline]
-    fn on_message<E: FnMut(MarketEvent)>(&mut self, msg: &[u8], recv_ns: u64, emit: &mut E) -> Result<Option<String>, VenueError> {
+    fn on_message<E: FnMut(MarketEvent)>(&mut self, msg: &[u8], recv_ns: u64, emit: &mut E) -> Result<Option<Outbound>, VenueError> {
         let m: Combined<'_> = serde_json::from_slice(msg).map_err(|_| VenueError::Skip("not a bookTicker message"))?;
         let t = m.data;
         let id = self.symbols.lookup(t.s.as_bytes()).ok_or(VenueError::Skip("unknown symbol"))?;

@@ -14,6 +14,11 @@ Every change set updates the knowledge base **in the same change**:
 - `docs/GLOSSARY.md` — add any new domain/technical term.
 - Requirement traceability table in `docs/README.md` — keep FR/NFR status current.
 
+## Live-money policy
+End goal: live trading as an income stream. LIVE mode stays refused in code until gate G0 in
+`docs/LIVE_READINESS.md` passes; every gate needs recorded evidence. Never weaken a risk guard
+to make a strategy look better. Keep the live-blocker table current.
+
 ## Engineering invariants
 - Hot path (feed → strategy → risk → broker) never allocates, locks, or does
   syscalls other than vDSO clock reads. Allocate at construction.

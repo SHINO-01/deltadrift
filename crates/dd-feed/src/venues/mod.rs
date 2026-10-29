@@ -3,6 +3,7 @@
 
 pub mod alpaca;
 pub mod binance;
+pub mod ctrader;
 
 use std::fmt;
 
@@ -25,6 +26,13 @@ impl fmt::Display for VenueError {
     }
 }
 
+/// A control message for the venue (cold path).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Outbound {
+    Text(String),
+    Binary(Vec<u8>),
+}
+
 /// A market-data venue. Methods returning `String`s are cold path (session
 /// control); [`on_message`](Venue::on_message) is hot path and must not
 /// allocate when it returns `Ok(None)`.
@@ -35,8 +43,11 @@ pub trait Venue {
 
     fn url(&self) -> String;
 
+    /// Largest message the venue can send (e.g. full symbol lists).
+    const MAX_MESSAGE: usize = 1 << 20;
+
     /// Called after every (re)connect; messages to send immediately.
-    fn on_connect(&mut self) -> Vec<String>;
+    fn on_connect(&mut self) -> Vec<Outbound>;
 
     /// Decodes one WebSocket message, emitting zero or more events. May return
     /// a control message to send (e.g. subscribe after auth succeeds).
@@ -45,5 +56,12 @@ pub trait Venue {
         msg: &[u8],
         recv_ns: u64,
         emit: &mut E,
-    ) -> Result<Option<String>, VenueError>;
+    ) -> Result<Option<Outbound>, VenueError>;
+
+    /// Called on every loop iteration of the feed core with the current
+    /// monotonic time; used for client heartbeats. Must be cheap.
+    #[inline(always)]
+    fn on_tick(&mut self, _now_ns: u64) -> Option<Outbound> {
+        None
+    }
 }

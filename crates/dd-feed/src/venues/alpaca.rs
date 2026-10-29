@@ -19,7 +19,7 @@ use serde::de::{DeserializeSeed, SeqAccess, Visitor};
 use serde::{Deserialize, Deserializer};
 use serde_json::value::RawValue;
 
-use super::{Venue, VenueError};
+use super::{Outbound, Venue, VenueError};
 use crate::SymbolTable;
 use crate::time::parse_rfc3339_ns;
 
@@ -134,12 +134,12 @@ impl Venue for Alpaca {
         }
     }
 
-    fn on_connect(&mut self) -> Vec<String> {
+    fn on_connect(&mut self) -> Vec<Outbound> {
         self.session = Session::Connecting;
         Vec::new() // wait for the server's "connected" greeting
     }
 
-    fn on_message<E: FnMut(MarketEvent)>(&mut self, msg: &[u8], recv_ns: u64, emit: &mut E) -> Result<Option<String>, VenueError> {
+    fn on_message<E: FnMut(MarketEvent)>(&mut self, msg: &[u8], recv_ns: u64, emit: &mut E) -> Result<Option<Outbound>, VenueError> {
         let venue_id = self.venue_id();
         let (symbols, seq) = (&self.symbols, &mut self.seq);
         let mut session = self.session;
@@ -189,6 +189,7 @@ impl Venue for Alpaca {
             }
             _ => None,
         };
+        let reply = reply.map(Outbound::Text);
         self.session = session;
         match skipped {
             Some(why) if reply.is_none() => Err(VenueError::Skip(why)),
@@ -217,9 +218,9 @@ mod tests {
         let mut ev = vec![];
         a.on_connect();
         let r = a.on_message(br#"[{"T":"success","msg":"connected"}]"#, 0, &mut |e| ev.push(e)).unwrap().unwrap();
-        assert_eq!(r, r#"{"action":"auth","key":"KEY","secret":"SEC"}"#);
+        assert_eq!(r, Outbound::Text(r#"{"action":"auth","key":"KEY","secret":"SEC"}"#.into()));
         let r = a.on_message(br#"[{"T":"success","msg":"authenticated"}]"#, 0, &mut |e| ev.push(e)).unwrap().unwrap();
-        assert_eq!(r, r#"{"action":"subscribe","quotes":["BTC/USD","ETH/USD"]}"#);
+        assert_eq!(r, Outbound::Text(r#"{"action":"subscribe","quotes":["BTC/USD","ETH/USD"]}"#.into()));
         assert!(a.on_message(br#"[{"T":"subscription","quotes":["BTC/USD","ETH/USD"]}]"#, 0, &mut |e| ev.push(e)).unwrap().is_none());
         assert_eq!(a.session, Session::Streaming);
 
