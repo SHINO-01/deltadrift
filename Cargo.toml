@@ -18,6 +18,8 @@ dd-exec = { path = "crates/dd-exec" }
 dd-feed = { path = "crates/dd-feed" }
 dd-net = { path = "crates/dd-net" }
 dd-secrets = { path = "crates/dd-secrets" }
+dd-hist = { path = "crates/dd-hist" }
+dd-backtest = { path = "crates/dd-backtest" }
 anyhow = "1"
 clap = { version = "4", features = ["derive"] }
 core_affinity = "0.8"
@@ -32,6 +34,8 @@ rustls = { version = "0.23", default-features = false, features = ["ring", "std"
 webpki-roots = "1"
 sha1_smol = "1"
 base64 = "0.22"
+lzma-rs = "0.3"
+ureq = { version = "3", default-features = false, features = ["rustls"] }
 criterion = { version = "0.5", default-features = false }
 
 [workspace.lints.rust]

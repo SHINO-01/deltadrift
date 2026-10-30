@@ -91,6 +91,48 @@ impl Default for LiveConfig {
     }
 }
 
+#[derive(Debug, Clone, Deserialize)]
+#[serde(default, deny_unknown_fields)]
+pub struct BacktestConfig {
+    /// Root of the historical data cache (see `deltadrift data fetch`).
+    pub data_root: std::path::PathBuf,
+    /// Dukascopy symbols. USD-quoted only until FX conversion lands (live blocker L15).
+    pub symbols: Vec<String>,
+    pub costs: dd_backtest::CostModel,
+    pub walk_forward: dd_backtest::walkforward::WfConfig,
+    pub grid: dd_backtest::walkforward::Grid,
+    /// Gate G1 thresholds.
+    pub g1_min_years: f64,
+    pub g1_min_round_trips: usize,
+    pub g1_min_dsr: f64,
+    pub g1_max_drawdown: f64,
+    /// Owner rule: live only above this win rate (net of costs).
+    pub g1_min_win_rate: f64,
+    /// Wins must outweigh losses (guards against high-win-rate / rare-huge-loss profiles).
+    pub g1_min_profit_factor: f64,
+    /// Worker threads for parameter grids (0 = all cores).
+    pub threads: usize,
+}
+
+impl Default for BacktestConfig {
+    fn default() -> Self {
+        Self {
+            data_root: "data".into(),
+            symbols: vec!["EURUSD".into()],
+            costs: dd_backtest::CostModel::default(),
+            walk_forward: Default::default(),
+            grid: Default::default(),
+            g1_min_years: 2.0,
+            g1_min_round_trips: 300,
+            g1_min_dsr: 0.95,
+            g1_max_drawdown: 0.15,
+            g1_min_win_rate: 0.70,
+            g1_min_profit_factor: 1.3,
+            threads: 0,
+        }
+    }
+}
+
 #[derive(Debug, Clone, Default, Deserialize)]
 #[serde(default, deny_unknown_fields)]
 pub struct Config {
@@ -100,6 +142,7 @@ pub struct Config {
     pub risk: RiskConfig,
     pub paper: PaperConfig,
     pub live: LiveConfig,
+    pub backtest: BacktestConfig,
 }
 
 impl EngineConfig {

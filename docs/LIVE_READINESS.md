@@ -13,8 +13,8 @@ CFD accounts) lose money. Nothing here is financial advice.
 | Gate | Pass criteria | Status |
 |---|---|---|
 | **G0 Engineering** | Every "Live blocker" below closed; LIVE requires an explicit `--i-accept-live-risk` flag plus config cap | ⬜ |
-| **G1 Backtest** | Walk-forward, out-of-sample, **after spreads, commissions, swaps/financing and slippage**; ≥ 2 years of data; ≥ 300 trades; probabilistic Sharpe vs. 0 > 0.95 after multiple-testing correction (deflated Sharpe); max drawdown < risk limits | ⬜ |
-| **G2 Paper (demo)** | ≥ 8 weeks continuous on the cTrader demo, ≥ 100 trades; live fills vs. backtest within agreed tolerance; zero unhandled incidents; restarts/reconnects recovered automatically | ⬜ |
+| **G1 Backtest** | Walk-forward, out-of-sample, **after spreads, commissions, swaps/financing and slippage**; ≥ 2 years OOS (≥ 2.25 y data); ≥ 300 round trips; deflated Sharpe > 0.95; max drawdown < 15%; positive return; **win rate > 70% net of costs (owner rule)**; profit factor ≥ 1.3. Evaluated automatically by `deltadrift backtest` | ⬜ (harness ✅; awaiting real data) |
+| **G2 Paper (demo)** | ≥ 8 weeks continuous on the cTrader demo, ≥ 100 trades; **win rate > 70% net (owner rule)**; live fills vs. backtest within agreed tolerance; zero unhandled incidents; restarts/reconnects recovered automatically | ⬜ |
 | **G3 Live pilot** | Capital the owner can afford to lose **entirely**, hard-capped in config; daily DD halt 2%; kill switch tested; 8+ weeks results consistent with G2 | ⬜ |
 | **G4 Scale** | Gradual increases only after G3 consistency; re-run G1 on any strategy change | ⬜ |
 
@@ -30,12 +30,13 @@ Any gate failure → back to research. A changed strategy restarts at G1.
 | L4 | **Broker-side protective stops** on every position | survives engine/network death | Sprint 4 |
 | L5 | Risk-reducing orders exempt from the strategy rate limit (separate reduce-only budget) | stop-outs must never be throttled (today they can be) | Sprint 4 |
 | L6 | **Integer cash ledger** (ADR-0005) | float drift in P&L/limits | Sprint 4 |
-| L7 | `roll_day` scheduled on the broker's trading-day boundary | daily DD guard currently never resets/rebases | Sprint 4 |
-| L8 | **Cost model**: spreads, commissions, swaps/overnight financing, CFD margin/leverage | edge must survive real costs | Sprint 3 |
-| L9 | Backtest/replay engine using the same strategy+risk code (no look-ahead) | G1 evidence | Sprint 3 |
+| L7 | `roll_day` scheduled on the broker's trading-day boundary | daily DD guard currently never resets/rebases | calendar + backtest ✅ (`dd_core::calendar`); live engine wiring Sprint 4 |
+| L8 | **Cost model**: spreads, commissions, swaps/overnight financing, CFD margin/leverage | edge must survive real costs | ✅ backtest (placeholder rates); real broker rates from cTrader symbol data when credentials land |
+| L9 | Backtest/replay engine using the same strategy+risk code (no look-ahead) | G1 evidence | ✅ `dd-backtest` |
 | L10 | Monitoring + alerting (phone push/email) on halt, disconnect, reconciliation failure, P&L | someone must know when it breaks | Sprint 6 |
 | L11 | Token refresh with secure persistence; encrypted secrets at rest (NFR-3) | 30-day token expiry must not stop a live system unnoticed | Sprint 6–7 |
 | L12 | Hard capital caps in config (max equity used, max notional) + **per-asset-class leverage caps ≤ ASIC retail limits** (FX major 30:1, minor/gold/major index 20:1, commodities 10:1, shares 5:1, crypto 2:1) | bounds the worst case; jurisdiction | Sprint 4 |
+| L15 | **FX conversion** of P&L/notional to account currency (AUD/USD) for non-USD-quoted instruments | USDJPY P&L is in JPY; risk limits would be wrong | Sprint 4 |
 | L14 | Tax-ready ledger: every trade, fee, swap in AUD, exportable per AU financial year (1 Jul–30 Jun) | ATO treats CFD P&L as ordinary income | Sprint 6 |
 | L13 | 24/7 hosting with auto-restart (systemd) on OCI + clock sync | unattended operation | Sprint 8 |
 

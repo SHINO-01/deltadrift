@@ -6,3 +6,6 @@
 *.key
 *.pem
 *.enc
+
+# Historical market data cache (large, re-downloadable)
+/data

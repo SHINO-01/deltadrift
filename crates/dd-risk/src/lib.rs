@@ -310,6 +310,11 @@ impl RiskEngine {
         self.portfolio.apply_fill(f.instrument, signed, f.px.to_f64(), f.fee.to_f64());
     }
 
+    /// Book overnight financing (swap) charged by the broker. Positive = cost.
+    pub fn on_financing(&mut self, amount: f64) {
+        self.portfolio.charge_financing(amount);
+    }
+
     /// Release in-flight quantity for an order that was cancelled/expired unfilled.
     pub fn on_cancel(&mut self, instrument: InstrumentId, side: Side, unfilled: Qty) {
         if let Some(p) = self.pending.get_mut(instrument.idx()) {

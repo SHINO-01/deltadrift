@@ -1,0 +1,19 @@
+[package]
+name = "dd-backtest"
+description = "Deterministic event-driven backtester: same strategy/risk code as live, realistic costs, walk-forward, G1 statistics."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+dd-core.workspace = true
+dd-risk.workspace = true
+dd-exec.workspace = true
+dd-strategy.workspace = true
+dd-hist.workspace = true
+serde.workspace = true
+
+[lints]
+workspace = true

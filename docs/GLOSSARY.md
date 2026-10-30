@@ -31,3 +31,12 @@
 - **ProtoMessage** — cTrader's envelope: `payloadType` (1), `payload` bytes (2), `clientMsgId` (3).
 - **Spot event** — cTrader quote update; carries only the changed side(s), prices in 1/100000 units.
 - **Playground** — cTrader Open API page that issues access tokens for your own accounts without building an OAuth flow.
+- **Walk-forward** — repeatedly optimise on a past window (train) and evaluate the chosen parameters on the next unseen window (test); only stitched test results count.
+- **OOS** — out-of-sample: data not used to choose parameters.
+- **PSR** — probabilistic Sharpe ratio: probability the true Sharpe exceeds a benchmark, given sample length, skew and kurtosis.
+- **DSR** — deflated Sharpe ratio: PSR against the best Sharpe expected from N skill-less trials; corrects for parameter search.
+- **Win rate** — share of closing trades with positive P&L **net of costs** (owner gate: > 70%).
+- **Profit factor** — gross winning P&L / gross losing P&L (gate ≥ 1.3).
+- **Rollover** — 17:00 New York FX day boundary; financing is charged here (×3 on Wednesday).
+- **Financing / swap** — overnight cost (or credit) on open CFD/FX positions.
+- **.bi5** — Dukascopy's LZMA-compressed hourly tick file.

@@ -1,0 +1,16 @@
+[package]
+name = "dd-hist"
+description = "Historical market data: Dukascopy tick download/decoding, time-ordered replay sources."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+dd-core.workspace = true
+lzma-rs.workspace = true
+ureq.workspace = true
+
+[lints]
+workspace = true

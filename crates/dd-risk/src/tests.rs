@@ -131,3 +131,13 @@ fn config_validation() {
     assert!(RiskConfig { kelly_fraction: 1.5, ..Default::default() }.validate().is_err());
     assert!(RiskConfig::default().validate().is_ok());
 }
+
+#[test]
+fn financing_reduces_equity() {
+    let mut p = Portfolio::new(1_000.0);
+    p.apply_fill(I, 10.0, 10.0, 0.0);
+    p.charge_financing(2.5);
+    p.charge_financing(-0.5); // credit
+    assert!((p.equity() - 998.0).abs() < 1e-9);
+    assert_eq!(p.open_positions().count(), 1);
+}

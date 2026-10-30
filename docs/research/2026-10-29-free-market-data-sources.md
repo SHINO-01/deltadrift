@@ -96,3 +96,12 @@ states 60 days for MT4/MT5 demos only [P]).
 - cTrader framing: https://help.ctrader.com/open-api/protocol-buffers-json/
 - Spotware proto files: https://github.com/spotware/openapi-proto-messages
 - Binance restrictions (secondary): https://www.datawallet.com/de/krypto/binance-geschützte-länder
+
+## Incident 2026-10-29/30: Dukascopy datafeed blocked this IP
+- First fetch used 6 parallel connections; within a minute `datafeed.dukascopy.com` (194.8.15.180)
+  stopped accepting TCP connections from this IP (www.dukascopy.com still reachable). Still blocked
+  ~1 day later. Cause: our burst (root cause: too-aggressive default). Not circumvented (no proxies/VPN).
+- Fix: fetcher defaults to 2 workers, 250 ms pause, 15 s timeout, shared cooldown 10 s → 5 min on any
+  failure, gives up after 20 consecutive failures; resumable.
+- Plan: primary backtest data = **cTrader tick history** (broker's own prices/spreads) once the
+  owner's KYC completes; retry Dukascopy politely later as a secondary source.

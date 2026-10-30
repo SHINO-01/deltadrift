@@ -48,3 +48,31 @@ slippage_bps = 0.5
 venue = "ctrader"         # ctrader (default, free demo) | binance | alpaca-crypto | alpaca-stocks
 symbols = ["EURUSD", "GBPUSD", "USDJPY", "BTCUSD", "ETHUSD"]   # broker-specific names
 io = "uring"              # std | uring | sqpoll
+
+[backtest]
+data_root = "data"            # cache for `deltadrift data fetch` (git-ignored)
+symbols = ["EURUSD"]          # USD-quoted only until FX conversion (live blocker L15)
+threads = 0                   # 0 = all cores
+g1_min_years = 2.0            # gate G1 thresholds (docs/LIVE_READINESS.md)
+g1_min_round_trips = 300
+g1_min_dsr = 0.95
+g1_max_drawdown = 0.15
+g1_min_win_rate = 0.70        # owner rule: live only above 70% wins (net of costs)
+g1_min_profit_factor = 1.3    # wins must outweigh losses: a 70% win rate alone can still lose money
+
+[backtest.costs]              # conservative placeholders until replaced by broker values
+latency_ms = 50
+slippage_bps = 0.2
+commission_per_million = 35.0 # e.g. 3.50 per 100k lot per side
+swap_long_annual = 0.02       # financing cost on notional per year (negative = credit)
+swap_short_annual = 0.02
+
+[backtest.walk_forward]
+train_days = 90
+test_days = 30
+
+[backtest.grid]               # Cartesian product for the baseline strategy
+entry_z = [2.0, 3.0, 4.0]
+exit_z = [0.0, 0.5]
+vol_halflife_ticks = [200.0, 1000.0]
+surprise_halflife_ms = [1000, 30000]

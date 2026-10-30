@@ -4,6 +4,7 @@
 //! `Copy`, `#[repr(C, align(64))]` and exactly one cache line wide.
 
 pub mod affinity;
+pub mod calendar;
 pub mod clock;
 pub mod decimal;
 pub mod pad;

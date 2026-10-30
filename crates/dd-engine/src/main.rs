@@ -2,6 +2,7 @@
 
 #![forbid(unsafe_code)]
 
+mod backtest_cmd;
 mod config;
 mod feed;
 mod pipeline;
@@ -28,6 +29,50 @@ enum Cmd {
     Run(RunArgs),
     /// Print the effective default configuration as TOML-compatible text.
     Config,
+    /// Historical data management.
+    #[command(subcommand)]
+    Data(DataCmd),
+    /// Walk-forward backtest with realistic costs; prints the gate G1 verdict.
+    Backtest(BacktestArgs),
+}
+
+#[derive(Debug, Subcommand)]
+enum DataCmd {
+    /// Download Dukascopy tick history into the cache (resumable).
+    Fetch {
+        #[arg(short, long)]
+        config: Option<PathBuf>,
+        /// Comma-separated symbols, e.g. EURUSD,GBPUSD.
+        #[arg(long, value_delimiter = ',', required = true)]
+        symbols: Vec<String>,
+        /// Inclusive start date YYYY-MM-DD (UTC).
+        #[arg(long)]
+        from: String,
+        /// Exclusive end date YYYY-MM-DD (UTC).
+        #[arg(long)]
+        to: String,
+        /// Parallel downloads. Keep low: the server throttles aggressive clients.
+        #[arg(long, default_value_t = 2)]
+        concurrency: usize,
+    },
+}
+
+#[derive(Debug, clap::Args)]
+struct BacktestArgs {
+    #[arg(short, long)]
+    config: Option<PathBuf>,
+    /// Overrides [backtest].symbols.
+    #[arg(long, value_delimiter = ',')]
+    symbols: Option<Vec<String>>,
+    #[arg(long)]
+    from: String,
+    #[arg(long)]
+    to: String,
+    #[arg(long)]
+    json: bool,
+    /// Use the synthetic generator instead of historical data (pipeline check only; never passes G1).
+    #[arg(long)]
+    synthetic: bool,
 }
 
 #[derive(Debug, clap::Args)]
@@ -73,10 +118,21 @@ fn main() -> Result<()> {
     // Load secrets before spawning threads (mutating the environment is not thread-safe).
     let env_file = match &cli.cmd {
         Cmd::Run(a) => a.env_file.clone(),
-        Cmd::Config => None,
+        _ => None,
     };
     dd_secrets::load_dotenv(env_file.as_deref())?;
     match cli.cmd {
+        Cmd::Data(DataCmd::Fetch { config, symbols, from, to, concurrency }) => {
+            let cfg = Config::load(config.as_deref())?;
+            backtest_cmd::fetch(&cfg, &symbols, backtest_cmd::parse_date(&from)?, backtest_cmd::parse_date(&to)?, concurrency)
+        }
+        Cmd::Backtest(a) => {
+            let mut cfg = Config::load(a.config.as_deref())?;
+            if let Some(s) = a.symbols {
+                cfg.backtest.symbols = s;
+            }
+            backtest_cmd::backtest(&cfg, backtest_cmd::parse_date(&a.from)?, backtest_cmd::parse_date(&a.to)?, a.json, a.synthetic)
+        }
         Cmd::Config => {
             println!("{:#?}", Config::default());
             Ok(())

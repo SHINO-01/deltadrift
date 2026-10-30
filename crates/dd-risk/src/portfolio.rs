@@ -51,6 +51,7 @@ pub struct Portfolio {
     positions: Box<[Position]>,
     cash_pnl: f64,
     fees: f64,
+    financing: f64,
     unrealized: f64,
     gross: f64,
     starting_equity: f64,
@@ -62,6 +63,7 @@ impl Portfolio {
             positions: vec![Position::default(); MAX_INSTRUMENTS].into_boxed_slice(),
             cash_pnl: 0.0,
             fees: 0.0,
+            financing: 0.0,
             unrealized: 0.0,
             gross: 0.0,
             starting_equity,
@@ -93,9 +95,23 @@ impl Portfolio {
         self.gross += (p.qty * p.mark).abs() - old_g;
     }
 
+    /// Books overnight financing (swap). Positive = cost, negative = credit.
+    pub fn charge_financing(&mut self, amount: f64) {
+        self.financing += amount;
+    }
+
     #[inline(always)]
     pub fn equity(&self) -> f64 {
-        self.starting_equity + self.cash_pnl + self.unrealized - self.fees
+        self.starting_equity + self.cash_pnl + self.unrealized - self.fees - self.financing
+    }
+
+    pub fn financing(&self) -> f64 {
+        self.financing
+    }
+
+    /// Positions with non-zero quantity, as (instrument, position).
+    pub fn open_positions(&self) -> impl Iterator<Item = (InstrumentId, Position)> + '_ {
+        self.positions.iter().enumerate().filter(|(_, p)| p.qty != 0.0).map(|(i, p)| (InstrumentId(i as u32), *p))
     }
     #[inline(always)]
     pub fn gross_notional(&self) -> f64 {

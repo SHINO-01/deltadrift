@@ -1,6 +1,6 @@
 # Architecture (current state)
 
-_Last updated: 2026-10-29, end of Sprint 2._
+_Last updated: 2026-10-30, Sprint 3 in progress._
 
 ## Pipeline
 
@@ -36,6 +36,8 @@ Core assignment: `engine.cores` or auto = one logical CPU per physical core, fas
 | `dd-exec` | `Broker` trait, `Exec` reports, `OrderTemplates`, `PaperBroker`, `TradingMode` | forbidden |
 | `dd-net` | Sans-IO TLS (rustls unbuffered) + WebSocket client over std / io_uring drivers | buffers + io_uring |
 | `dd-feed` | `SyntheticFeed`; live runner; venues `Ctrader` (default), `Binance`, `Alpaca`; proto2 codec; `SymbolTable`; RFC 3339 | forbidden |
+| `dd-hist` | Historical data: Dukascopy `.bi5` decode + polite resumable fetcher; time-ordered multi-instrument `HistSource` | forbidden |
+| `dd-backtest` | Simulated broker (latency, spread, slippage, commission, financing), `Simulation`, parallel `runner`, metrics (PSR/DSR), walk-forward | forbidden |
 | `dd-secrets` | `.env` loading, redacting/zeroizing `Secret` | forbidden |
 | `dd-engine` | `deltadrift` binary: config, pipeline wiring, report | forbidden |
 
@@ -99,6 +101,22 @@ Io.poll_recv ─▶ RecvBuf (ciphertext, 256 KiB, raw alloc)
   - **Binance** combined `bookTicker` (public; `u` as seq).
   - **Alpaca** crypto/stocks quotes (streaming array visitor; venue timestamps → `exch_ns`).
 - `FeedStats.wire_to_event` histogram: socket read → event emitted.
+
+## Backtesting (`dd-hist` + `dd-backtest`, ADR-0013)
+
+```
+HistSource (per-instrument decoder threads, k-way merge on (ts, instrument))
+  ─▶ runner::run: batches of 32k events ─▶ N × Simulation (parallel across sims)
+       Simulation.on_event: roll_to(t) [financing, day snapshot, risk.roll_day at 17:00 NY]
+                            ─▶ SimBroker fills eligible orders (t ≥ decision + latency) ─▶ RiskEngine.on_fill
+                            ─▶ Strategy.on_event ─▶ RiskEngine.on_signal ─▶ SimBroker.submit
+  ─▶ SimResult (daily equity, net-of-cost closes, cost breakdown) ─▶ metrics ─▶ walk-forward ─▶ G1 gates
+```
+
+- `deltadrift data fetch --symbols EURUSD --from … --to …` (resumable, shared cooldown on failure).
+- `deltadrift backtest --from … --to … [--json] [--synthetic]` prints OOS metrics and the G1 verdict.
+  `--synthetic` validates the pipeline only and can never pass G1.
+- USD-quoted symbols only until FX conversion (L15).
 
 ## Secrets
 

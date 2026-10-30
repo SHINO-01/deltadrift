@@ -119,3 +119,35 @@ Owner constraint: all data must be free (Alpaca full real-time stock data costs 
 - ADR-0012 **accepted**: S3 = backtest + cost model, S4 = cTrader execution + live blockers,
   S5 = strategy research, S6 = paper run + monitoring.
 - Jurisdiction **Australia**: ASIC leverage caps → blocker L12; AU-FY tax ledger → blocker L14.
+
+## Sprint 3 — Backtest & cost model (started 2026-10-29, in progress)
+
+### Shipped so far
+- `dd_core::calendar`: FX trading day (17:00 New York, US DST), rollover, triple-Wednesday swap. Tested across DST switches.
+- `dd-hist`: Dukascopy `.bi5` decoder (exact prices), polite resumable fetcher, `HistSource` (per-instrument
+  background decoding, deterministic k-way merge).
+- `dd-risk`: financing charges (`on_financing`), `open_positions`.
+- `dd-backtest`: `SimBroker` (latency, slippage, commission, IOC cancel), `Simulation` reusing live
+  strategy+risk, net-of-cost trade attribution, parallel multi-sim runner, metrics (Sharpe, Sortino, DD,
+  PSR, DSR; reference value E[max SR] N=100 → 2.5306 reproduced), walk-forward.
+- CLI: `deltadrift data fetch`, `deltadrift backtest [--synthetic] [--json]` with automatic G1 verdict.
+- Owner rule: **live only with win rate > 70%** → G1/G2 gate, plus profit factor ≥ 1.3 (ADR-0013).
+- Tests: 69 total (+18). Clippy clean.
+
+### Measurements
+| What | Result |
+|---|---|
+| Synthetic 2.25-year walk-forward (24 windows × 24 param sets) | 178 M data events replayed; 66 s wall; 26 MB RSS (dev box, 12 threads) |
+| Baseline ZScore strategy (synthetic, after costs) | −27.4%, Sharpe −13.4, win rate 25.6%, PF 0.34; spread ≈ the entire loss → **G1 FAIL** (expected; demonstrates the gates) |
+
+### Bugs / findings
+1. **Dukascopy blocked our IP** after a 6-connection burst (see research note). Fetcher made polite.
+2. G1 "≥ 2 years" needs **≥ 2.25 years of data** (first 90 days are training only).
+3. Trial-Sharpe variance exploded (148) from degenerate parameter sets (near-constant financing-only
+   returns). Excluded degenerate trials → 1.22.
+4. f32 volume noise in source data (0.9M → 899,999.976); rounded to whole units.
+
+### Remaining in Sprint 3
+- cTrader historical ticks/bars downloader (`ProtoOAGetTickDataReq`) as primary data source (after KYC).
+- Real cost inputs from cTrader symbol data (swapLong/swapShort, commission).
+- First real-data G1 evaluation; strategy research begins in Sprint 5 with this harness.
